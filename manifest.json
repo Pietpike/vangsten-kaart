@@ -1,34 +1,24 @@
-const CACHE_NAME = 'pike-hunters-v1';
-const urlsToCache = [
-  '/',
-  '/index.html',
-  '/kaart.js',
-  '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/favicon.ico'
-];
-
-// Installeer en cache files
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Cache geopend');
-        return cache.addAll(urlsToCache);
-      })
-  );
-});
-
-// Haal files uit cache
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        if (response) {
-          return response;
-        }
-        return fetch(event.request);
-      })
-  );
-});
+{
+  "name": "The Pike Hunters - Vangsten Kaart",
+  "short_name": "Pike Hunters",
+  "description": "Bekijk al je vangsten op de kaart",
+  "start_url": "/vangsten-kaart/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#1a1a1a",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/vangsten-kaart/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/vangsten-kaart/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
