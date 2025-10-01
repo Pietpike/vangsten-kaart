@@ -7,7 +7,7 @@
     
     <!-- Favicon en App Iconen -->
     <link rel="icon" type="image/x-icon" href="icons/favicon.ico">
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="/vangsten-kaart/manifest.json">
     
     <!-- iOS App Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -124,10 +124,11 @@
     <!-- Service Worker registratie -->
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/service-worker.js')
+            navigator.serviceWorker.register('/vangsten-kaart/service-worker.js')
                 .then(reg => console.log('Service Worker geregistreerd'))
                 .catch(err => console.log('Service Worker niet beschikbaar:', err));
         }
     </script>
 </body>
 </html>
+
