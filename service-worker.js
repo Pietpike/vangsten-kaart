@@ -1,12 +1,12 @@
 const CACHE_NAME = 'pike-hunters-v1';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/kaart.js',
-  '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/favicon.ico'
+  '/vangsten-kaart/',
+  '/vangsten-kaart/index.html',
+  '/vangsten-kaart/kaart.js',
+  '/vangsten-kaart/manifest.json',
+  '/vangsten-kaart/icons/icon-192.png',
+  '/vangsten-kaart/icons/icon-512.png',
+  '/vangsten-kaart/icons/favicon.ico'
 ];
 
 // Installeer en cache files
