@@ -1,4 +1,64 @@
 // ====================================
+// AUTHENTICATION CHECK
+// ====================================
+
+// Check of gebruiker is ingelogd
+async function checkAuth() {
+    // Wacht tot Supabase client beschikbaar is
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while ((!supabase || typeof supabase.auth === 'undefined') && attempts < maxAttempts) {
+        console.log(`Wachten op Supabase... (poging ${attempts + 1}/${maxAttempts})`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        attempts++;
+    }
+    
+    if (!supabase || typeof supabase.auth === 'undefined') {
+        console.error('Supabase niet beschikbaar');
+        return false;
+    }
+    
+    try {
+        const { data } = await supabase.auth.getSession();
+        
+        if (!data.session) {
+            console.log('Niet ingelogd, redirect naar login');
+            const currentUrl = encodeURIComponent(window.location.pathname);
+            window.location.href = `login.html?return=${currentUrl}`;
+            return false;
+        }
+        
+        console.log('Ingelogd als:', data.session.user.email);
+        return true;
+    } catch (error) {
+        console.error('Auth check error:', error);
+        return false;
+    }
+}
+
+// Logout functie
+async function logout() {
+    const confirmLogout = confirm('Weet je zeker dat je wilt uitloggen?');
+    if (!confirmLogout) return;
+    
+    try {
+        await supabase.auth.signOut({ scope: 'local' });
+    } catch (error) {
+        console.warn('Logout warning:', error.message);
+    }
+    
+    window.location.href = 'login.html';
+}
+
+// Check auth bij app start
+checkAuth().then(isAuthenticated => {
+    if (isAuthenticated) {
+        console.log('Gebruiker geauthenticeerd, kaart wordt geladen');
+    }
+});
+
+// ====================================
 // SUPABASE CONFIGURATIE
 // ====================================
 
@@ -220,4 +280,5 @@ function filterFish(type) {
 // ====================================
 
 // Laad vangsten zodra de pagina klaar is
+
 loadCatches();
