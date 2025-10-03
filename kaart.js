@@ -51,10 +51,11 @@ async function logout() {
     window.location.href = 'login.html';
 }
 
-// Check auth bij app start
+// Check auth bij app start en laad dan data
 checkAuth().then(isAuthenticated => {
     if (isAuthenticated) {
         console.log('Gebruiker geauthenticeerd, kaart wordt geladen');
+        loadCatches(); // Laad data alleen NA succesvolle authenticatie
     }
 });
 
@@ -65,7 +66,16 @@ checkAuth().then(isAuthenticated => {
 const SUPABASE_URL = 'https://hezjtqaowjpyvkadeisp.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhlemp0cWFvd2pweXZrYWRlaXNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM0MTQ3NTMsImV4cCI6MjA2ODk5MDc1M30.hq0IwhnnrJIXfTMGNE6PJkB0qhx2t7h3h0UOpZGi7wo';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = window.supabase.createClient(
+    SUPABASE_URL, 
+    SUPABASE_KEY,
+    {
+        auth: {
+            persistSession: true,
+            autoRefreshToken: true
+        }
+    }
+);
 
 // ====================================
 // KAART INITIALISEREN
@@ -276,9 +286,7 @@ function filterFish(type) {
 }
 
 // ====================================
-// START DE APP
+// APP START
 // ====================================
-
-// Laad vangsten zodra de pagina klaar is
-
-loadCatches();
+// Let op: loadCatches() wordt aangeroepen in checkAuth().then() bovenaan
+// Niet hier onderaan, omdat we eerst moeten wachten op authenticatie
