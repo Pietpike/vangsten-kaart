@@ -1,65 +1,4 @@
 // ====================================
-// AUTHENTICATION CHECK
-// ====================================
-
-// Check of gebruiker is ingelogd
-async function checkAuth() {
-    // Wacht tot Supabase client beschikbaar is
-    let attempts = 0;
-    const maxAttempts = 10;
-    
-    while ((!supabase || typeof supabase.auth === 'undefined') && attempts < maxAttempts) {
-        console.log(`Wachten op Supabase... (poging ${attempts + 1}/${maxAttempts})`);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        attempts++;
-    }
-    
-    if (!supabase || typeof supabase.auth === 'undefined') {
-        console.error('Supabase niet beschikbaar');
-        return false;
-    }
-    
-    try {
-        const { data } = await supabase.auth.getSession();
-        
-        if (!data.session) {
-            console.log('Niet ingelogd, redirect naar login');
-            const currentUrl = encodeURIComponent(window.location.pathname);
-            window.location.href = `login.html?return=${currentUrl}`;
-            return false;
-        }
-        
-        console.log('Ingelogd als:', data.session.user.email);
-        return true;
-    } catch (error) {
-        console.error('Auth check error:', error);
-        return false;
-    }
-}
-
-// Logout functie
-async function logout() {
-    const confirmLogout = confirm('Weet je zeker dat je wilt uitloggen?');
-    if (!confirmLogout) return;
-    
-    try {
-        await supabase.auth.signOut({ scope: 'local' });
-    } catch (error) {
-        console.warn('Logout warning:', error.message);
-    }
-    
-    window.location.href = 'login.html';
-}
-
-// Check auth bij app start en laad dan data
-checkAuth().then(isAuthenticated => {
-    if (isAuthenticated) {
-        console.log('Gebruiker geauthenticeerd, kaart wordt geladen');
-        loadCatches(); // Laad data alleen NA succesvolle authenticatie
-    }
-});
-
-// ====================================
 // SUPABASE CONFIGURATIE
 // ====================================
 
@@ -78,13 +17,45 @@ const supabase = window.supabase.createClient(
 );
 
 // ====================================
+// AUTHENTICATION CHECK
+// ====================================
+
+async function checkAuth() {
+    const { data } = await supabase.auth.getSession();
+    
+    if (!data.session) {
+        console.log('Niet ingelogd, redirect naar login pagina');
+        window.location.href = 'login.html';
+        return false;
+    }
+    
+    console.log('Ingelogd als:', data.session.user.email);
+    return true;
+}
+
+async function logout() {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+        console.error('Logout error:', error);
+    } else {
+        window.location.href = 'login.html';
+    }
+}
+
+// Voer auth check uit EN laad data
+checkAuth().then(isAuthenticated => {
+    if (isAuthenticated) {
+        console.log('Gebruiker is geauthenticeerd, kaart wordt geladen');
+        loadCatches();
+    }
+});
+
+// ====================================
 // KAART INITIALISEREN
 // ====================================
 
-// Maak de kaart en centreer op Nederland
 const map = L.map('map').setView([52.1326, 5.2913], 7);
 
-// Voeg OpenStreetMap tiles toe
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors',
     maxZoom: 19
@@ -94,7 +65,6 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 // ICONEN DEFINIËREN
 // ====================================
 
-// Custom iconen per vissoort (verschillende kleuren)
 const fishIcons = {
     snoek: L.icon({
         iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
@@ -141,7 +111,6 @@ let markerClusterGroup = L.markerClusterGroup({
     zoomToBoundsOnClick: true
 });
 
-// Bewaar alle markers voor filtering
 let allMarkers = [];
 
 // ====================================
@@ -152,7 +121,6 @@ async function loadCatches() {
     try {
         console.log('Vangsten ophalen van Supabase...');
         
-        // Haal alle vangsten op met JOIN naar aastabel voor aas naam
         const { data, error } = await supabase
             .from('catches')
             .select(`
@@ -169,7 +137,7 @@ async function loadCatches() {
         }
         
         console.log('Aantal vangsten geladen:', data.length);
-        console.log('Voorbeeld data:', data[0]); // Voor debugging
+        console.log('Voorbeeld data:', data[0]);
         
         if (data.length === 0) {
             console.warn('Geen vangsten gevonden in de database');
@@ -177,28 +145,21 @@ async function loadCatches() {
             return;
         }
         
-        // Maak een marker voor elke vangst
         data.forEach(vangst => {
-            // Check of GPS coordinaten aanwezig zijn
             if (!vangst.gps_lat || !vangst.gps_long) {
                 console.warn('Vangst zonder GPS coordinaten:', vangst);
                 return;
             }
             
-            // Bepaal welk icoon te gebruiken
-            // Database heeft hoofdletters (Snoek, Baars, Snoekbaars), we maken kleine letters voor matching
             const vissoort = vangst.soort ? vangst.soort.toLowerCase() : 'overig';
             const icon = fishIcons[vissoort] || fishIcons.overig;
             
-            // Maak de marker
             const marker = L.marker([vangst.gps_lat, vangst.gps_long], {
                 icon: icon
             });
             
-            // Haal aas naam op uit de JOIN (of toon "Onbekend" als niet beschikbaar)
             const aasNaam = vangst.aastabel?.naam || 'Onbekend';
             
-            // Formatteer datum als deze bestaat
             let datumTekst = 'Onbekend';
             if (vangst.catch_datetime) {
                 try {
@@ -215,7 +176,6 @@ async function loadCatches() {
                 }
             }
             
-            // Maak popup content
             const popupContent = `
                 <div style="min-width: 200px;">
                     <h3 style="margin: 0 0 10px 0; color: #2c3e50;">${vangst.soort || 'Onbekend'}</h3>
@@ -228,22 +188,15 @@ async function loadCatches() {
             `;
             
             marker.bindPopup(popupContent);
-            
-            // Bewaar extra info voor filtering
             marker.fishType = vissoort;
             marker.catchData = vangst;
             
-            // Voeg toe aan onze lijst
             allMarkers.push(marker);
         });
         
-        // Voeg alle markers toe aan de cluster groep
         markerClusterGroup.addLayers(allMarkers);
-        
-        // Voeg cluster groep toe aan de kaart
         map.addLayer(markerClusterGroup);
         
-        // Zoom automatisch naar alle markers
         if (allMarkers.length > 0) {
             const group = L.featureGroup(allMarkers);
             map.fitBounds(group.getBounds().pad(0.1));
@@ -262,10 +215,8 @@ async function loadCatches() {
 // ====================================
 
 function filterFish(type) {
-    // Verwijder alle markers
     markerClusterGroup.clearLayers();
     
-    // Filter markers
     let filteredMarkers;
     if (type === 'all') {
         filteredMarkers = allMarkers;
@@ -273,10 +224,8 @@ function filterFish(type) {
         filteredMarkers = allMarkers.filter(marker => marker.fishType === type);
     }
     
-    // Voeg gefilterde markers toe
     markerClusterGroup.addLayers(filteredMarkers);
     
-    // Update actieve knop styling
     document.querySelectorAll('.filter-controls button').forEach(btn => {
         btn.classList.remove('active');
     });
@@ -284,9 +233,3 @@ function filterFish(type) {
     
     console.log(`Filter: ${type} - ${filteredMarkers.length} markers zichtbaar`);
 }
-
-// ====================================
-// APP START
-// ====================================
-// Let op: loadCatches() wordt aangeroepen in checkAuth().then() bovenaan
-// Niet hier onderaan, omdat we eerst moeten wachten op authenticatie
