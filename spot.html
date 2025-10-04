@@ -7,7 +7,6 @@
     
     <!-- Favicon en App Iconen -->
     <link rel="icon" type="image/x-icon" href="icons/favicon.ico">
-    <link rel="manifest" href="manifest-spot.json">
     
     <!-- iOS App Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -17,6 +16,9 @@
     
     <!-- Theme Color -->
     <meta name="theme-color" content="#FF9800">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -97,6 +99,23 @@
             border-radius: 5px;
             margin-bottom: 10px;
             font-family: monospace;
+        }
+        
+        #manual_map {
+            height: 300px;
+            width: 100%;
+            border-radius: 5px;
+            margin-top: 10px;
+            border: 2px solid #ddd;
+        }
+        
+        .map-instructions {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 14px;
+            color: #1976d2;
         }
         
         .btn {
@@ -247,7 +266,7 @@
                     </label>
                     <label>
                         <input type="radio" name="gps_type" value="manual" onchange="toggleGPS()">
-                        Handmatig
+                        Kies op kaart
                     </label>
                 </div>
                 
@@ -261,8 +280,13 @@
                 </div>
                 
                 <div id="manual_gps_input" class="hidden" style="margin-top: 10px;">
-                    <input type="number" id="manual_lat" step="0.000001" placeholder="Latitude (bijv. 52.123456)" style="margin-bottom: 8px;">
-                    <input type="number" id="manual_long" step="0.000001" placeholder="Longitude (bijv. 5.123456)">
+                    <div class="map-instructions">
+                        Klik op de kaart om de locatie te kiezen
+                    </div>
+                    <div id="manual_map"></div>
+                    <div class="gps-display" id="manual_coords_display" style="margin-top: 10px;">
+                        Klik op de kaart...
+                    </div>
                 </div>
             </div>
             
@@ -288,7 +312,9 @@
         </form>
     </div>
     
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
     <script src="spot.js"></script>
 </body>
-
 </html>
