@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Spot - The Pike Hunters</title>
+    
+    <!-- Favicon en App Iconen -->
+    <link rel="icon" type="image/x-icon" href="icons/favicon.ico">
+    <link rel="manifest" href="manifest-spot.json">
+    
+    <!-- iOS App Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Quick Spot">
+    <link rel="apple-touch-icon" href="icons/icon-512.png">
+    
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#FF9800">
+    
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            color: #FF9800;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        select, textarea, input[type="url"], input[type="datetime-local"], input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #FF9800;
+        }
+        
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 8px;
+        }
+        
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: normal;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .gps-display {
+            padding: 12px;
+            background: #f5f5f5;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-family: monospace;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .btn-primary {
+            background: #FF9800;
+            color: white;
+            margin-bottom: 10px;
+        }
+        
+        .btn-primary:hover {
+            background: #F57C00;
+        }
+        
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background: #666;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #555;
+        }
+        
+        .btn-gps {
+            background: #2196F3;
+            color: white;
+            margin-top: 8px;
+        }
+        
+        .success-message {
+            background: #4CAF50;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .error-message {
+            background: #f44336;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Quick Spot</h1>
+        
+        <div id="successMessage" class="success-message"></div>
+        <div id="errorMessage" class="error-message"></div>
+        
+        <form id="spotForm">
+            <!-- Soort -->
+            <div class="form-group">
+                <label for="soort">Welke vis?</label>
+                <select id="soort" required>
+                    <option value="Snoek">Snoek</option>
+                    <option value="Snoekbaars">Snoekbaars</option>
+                    <option value="Baars">Baars</option>
+                    <option value="Overig">Overig</option>
+                </select>
+            </div>
+            
+            <!-- Wanneer gezien -->
+            <div class="form-group">
+                <label>Wanneer gezien?</label>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="tijd_type" value="nu" checked onchange="toggleDatetime()">
+                        Nu
+                    </label>
+                    <label>
+                        <input type="radio" name="tijd_type" value="custom" onchange="toggleDatetime()">
+                        Andere datum
+                    </label>
+                </div>
+                <input type="datetime-local" id="custom_datetime" class="hidden" style="margin-top: 10px;">
+            </div>
+            
+            <!-- Hoe gezien -->
+            <div class="form-group">
+                <label for="waarneming_type">Hoe gezien?</label>
+                <select id="waarneming_type">
+                    <option value="live">Live op locatie</option>
+                    <option value="camera">Op foto</option>
+                    <option value="video">Op video</option>
+                    <option value="drone">Drone opname</option>
+                </select>
+            </div>
+            
+            <!-- Zekerheid -->
+            <div class="form-group">
+                <label for="zekerheid">Hoe zeker?</label>
+                <select id="zekerheid">
+                    <option value="zeker">Zeker (duidelijk gezien)</option>
+                    <option value="waarschijnlijk">Waarschijnlijk</option>
+                    <option value="mogelijk">Mogelijk (niet 100% zeker)</option>
+                </select>
+            </div>
+            
+            <!-- Grootte -->
+            <div class="form-group">
+                <label for="grootte">Geschatte grootte</label>
+                <select id="grootte">
+                    <option value="">Onbekend</option>
+                    <option value="klein">Klein (< 40cm)</option>
+                    <option value="middel">Middel (40-70cm)</option>
+                    <option value="groot">Groot (70-100cm)</option>
+                    <option value="zeer groot">Zeer groot (> 100cm)</option>
+                </select>
+            </div>
+            
+            <!-- Locatie -->
+            <div class="form-group">
+                <label>Locatie</label>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="gps_type" value="current" checked onchange="toggleGPS()">
+                        Huidige GPS
+                    </label>
+                    <label>
+                        <input type="radio" name="gps_type" value="manual" onchange="toggleGPS()">
+                        Handmatig
+                    </label>
+                </div>
+                
+                <div id="current_gps_display">
+                    <div id="gps_display" class="gps-display" style="margin-top: 10px;">
+                        GPS wordt opgehaald...
+                    </div>
+                    <button type="button" class="btn btn-gps" onclick="getLocation()">
+                        Ververs GPS
+                    </button>
+                </div>
+                
+                <div id="manual_gps_input" class="hidden" style="margin-top: 10px;">
+                    <input type="number" id="manual_lat" step="0.000001" placeholder="Latitude (bijv. 52.123456)" style="margin-bottom: 8px;">
+                    <input type="number" id="manual_long" step="0.000001" placeholder="Longitude (bijv. 5.123456)">
+                </div>
+            </div>
+            
+            <!-- Media URL -->
+            <div class="form-group">
+                <label for="media_url">Link naar foto/video (optioneel)</label>
+                <input type="url" id="media_url" placeholder="https://...">
+            </div>
+            
+            <!-- Notities -->
+            <div class="form-group">
+                <label for="notities">Notities (optioneel)</label>
+                <textarea id="notities" rows="3" placeholder="Bijv: Jaagend bij riet, grote plons"></textarea>
+            </div>
+            
+            <!-- Buttons -->
+            <button type="submit" class="btn btn-primary" id="submitBtn">
+                Opslaan & Klaar
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="goToMap()">
+                Terug naar kaart
+            </button>
+        </form>
+    </div>
+    
+    <script src="spot.js"></script>
+</body>
+</html>
