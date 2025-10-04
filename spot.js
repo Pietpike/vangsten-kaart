@@ -1,4 +1,4 @@
-// Supabase configuratie - VERVANG MET JOUW GEGEVENS
+// Supabase configuratie
 const SUPABASE_URL = 'https://hezjtqaowjpyvkadeisp.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhlemp0cWFvd2pweXZrYWRlaXNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM0MTQ3NTMsImV4cCI6MjA2ODk5MDc1M30.hq0IwhnnrJIXfTMGNE6PJkB0qhx2t7h3h0UOpZGi7wo';
 
@@ -7,6 +7,12 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // GPS variabelen
 let currentLat = null;
 let currentLong = null;
+let manualLat = null;
+let manualLong = null;
+
+// Kaart variabelen
+let manualMap = null;
+let manualMarker = null;
 
 // Check authentication
 async function checkAuth() {
@@ -18,7 +24,6 @@ async function checkAuth() {
     return true;
 }
 
-// Initialisatie
 checkAuth();
 
 // GPS ophalen
@@ -49,8 +54,37 @@ function getLocation() {
     );
 }
 
-// Auto-load GPS bij openen
 getLocation();
+
+// Initialize manual map
+function initManualMap() {
+    if (manualMap) return;
+    
+    // Default centrum Nederland
+    manualMap = L.map('manual_map').setView([52.1326, 5.2913], 8);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(manualMap);
+    
+    // Click event op kaart
+    manualMap.on('click', function(e) {
+        manualLat = e.latlng.lat;
+        manualLong = e.latlng.lng;
+        
+        // Verwijder oude marker
+        if (manualMarker) {
+            manualMap.removeLayer(manualMarker);
+        }
+        
+        // Voeg nieuwe marker toe
+        manualMarker = L.marker([manualLat, manualLong]).addTo(manualMap);
+        
+        // Update display
+        document.getElementById('manual_coords_display').textContent = 
+            `${manualLat.toFixed(6)}, ${manualLong.toFixed(6)}`;
+    });
+}
 
 // Toggle datetime input
 function toggleDatetime() {
@@ -75,13 +109,15 @@ function toggleGPS() {
     if (gpsType === 'manual') {
         currentGPS.classList.add('hidden');
         manualGPS.classList.remove('hidden');
-        document.getElementById('manual_lat').required = true;
-        document.getElementById('manual_long').required = true;
+        
+        // Initialize kaart als het nog niet bestaat
+        setTimeout(() => {
+            initManualMap();
+            manualMap.invalidateSize();
+        }, 100);
     } else {
         currentGPS.classList.remove('hidden');
         manualGPS.classList.add('hidden');
-        document.getElementById('manual_lat').required = false;
-        document.getElementById('manual_long').required = false;
     }
 }
 
@@ -100,7 +136,6 @@ function showMessage(type, message) {
         successEl.style.display = 'none';
     }
     
-    // Auto hide na 5 seconden
     setTimeout(() => {
         successEl.style.display = 'none';
         errorEl.style.display = 'none';
@@ -162,15 +197,14 @@ document.getElementById('spotForm').addEventListener('submit', async (e) => {
             lat = currentLat;
             long = currentLong;
         } else {
-            lat = parseFloat(document.getElementById('manual_lat').value);
-            long = parseFloat(document.getElementById('manual_long').value);
-            
-            if (!lat || !long) {
-                showMessage('error', 'Vul GPS coordinaten in');
+            if (!manualLat || !manualLong) {
+                showMessage('error', 'Klik op de kaart om een locatie te kiezen');
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Opslaan & Klaar';
                 return;
             }
+            lat = manualLat;
+            long = manualLong;
         }
         
         // Verzamel data
@@ -205,8 +239,17 @@ document.getElementById('spotForm').addEventListener('submit', async (e) => {
         // Reset form
         document.getElementById('spotForm').reset();
         
-        // Herlaad GPS voor nieuwe sighting
+        // Reset GPS
         getLocation();
+        
+        // Reset manual map
+        if (manualMarker) {
+            manualMap.removeLayer(manualMarker);
+            manualMarker = null;
+        }
+        manualLat = null;
+        manualLong = null;
+        document.getElementById('manual_coords_display').textContent = 'Klik op de kaart...';
         
         // Redirect naar kaart na 2 seconden
         setTimeout(() => {
