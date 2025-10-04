@@ -121,6 +121,16 @@ document.getElementById('spotForm').addEventListener('submit', async (e) => {
     submitBtn.textContent = 'Bezig met opslaan...';
     
     try {
+        // Haal huidige user op
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+            showMessage('error', 'Je bent niet ingelogd');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Opslaan & Klaar';
+            return;
+        }
+        
         // Datum/tijd bepalen
         const tijdType = document.querySelector('input[name="tijd_type"]:checked').value;
         let sightingDatetime;
@@ -173,7 +183,8 @@ document.getElementById('spotForm').addEventListener('submit', async (e) => {
             zekerheid: document.getElementById('zekerheid').value,
             geschatte_grootte: document.getElementById('grootte').value || null,
             notities: document.getElementById('notities').value || null,
-            media_url: document.getElementById('media_url').value || null
+            media_url: document.getElementById('media_url').value || null,
+            created_by: user.id
         };
         
         console.log('Sighting data:', sightingData);
@@ -193,6 +204,9 @@ document.getElementById('spotForm').addEventListener('submit', async (e) => {
         
         // Reset form
         document.getElementById('spotForm').reset();
+        
+        // Herlaad GPS voor nieuwe sighting
+        getLocation();
         
         // Redirect naar kaart na 2 seconden
         setTimeout(() => {
