@@ -90,6 +90,53 @@
             background: #2196F3;
         }
         
+        /* Sighting markers opacity */
+        .sighting-marker {
+            opacity: 0.7;
+        }
+        
+        /* Activity type filters */
+        .activity-filters {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #ddd;
+        }
+        
+        .activity-filters label {
+            display: block;
+            margin: 5px 0;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .activity-filters input[type="checkbox"] {
+            margin-right: 5px;
+        }
+        
+        /* Quick Spot button */
+        .quick-spot-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #FF9800;
+            color: white;
+            border: none;
+            font-size: 30px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .quick-spot-btn:hover {
+            background: #F57C00;
+        }
+        
         /* Mobiel optimalisatie */
         @media (max-width: 600px) {
             .logout-btn {
@@ -102,7 +149,7 @@
             .filter-controls {
                 right: 10px;
                 left: 10px;
-                top: 50px; /* Ruimte voor logout knop */
+                top: 50px;
                 padding: 8px;
             }
             
@@ -111,6 +158,14 @@
                 width: 100%;
                 margin: 3px 0;
                 padding: 10px;
+            }
+            
+            .quick-spot-btn {
+                bottom: 80px;
+                right: 15px;
+                width: 50px;
+                height: 50px;
+                font-size: 24px;
             }
             
             .leaflet-popup-content {
@@ -126,19 +181,39 @@
 </head>
 <body>
     <!-- Logout knop -->
-    <button class="logout-btn" onclick="logout()">🚪 Uitloggen</button>
+    <button class="logout-btn" onclick="logout()">Uitloggen</button>
     
     <!-- Filter knoppen -->
     <div class="filter-controls">
-        <button onclick="filterFish('all')" class="active" id="btn-all">Alle</button>
-        <button onclick="filterFish('snoek')" id="btn-snoek">Snoek</button>
-        <button onclick="filterFish('snoekbaars')" id="btn-snoekbaars">Snoekbaars</button>
-        <button onclick="filterFish('baars')" id="btn-baars">Baars</button>
-        <button onclick="filterFish('overig')" id="btn-overig">Overig</button>
+        <div>
+            <strong>Soort:</strong><br>
+            <button onclick="filterFish('all')" class="active" id="btn-all">Alle</button>
+            <button onclick="filterFish('snoek')" id="btn-snoek">Snoek</button>
+            <button onclick="filterFish('snoekbaars')" id="btn-snoekbaars">Snoekbaars</button>
+            <button onclick="filterFish('baars')" id="btn-baars">Baars</button>
+            <button onclick="filterFish('overig')" id="btn-overig">Overig</button>
+        </div>
+        
+        <div class="activity-filters">
+            <strong>Type:</strong><br>
+            <label>
+                <input type="checkbox" id="check-catch" checked onchange="toggleActivityType('catch')">
+                Vangsten
+            </label>
+            <label>
+                <input type="checkbox" id="check-sighting" checked onchange="toggleActivityType('sighting')">
+                Waarnemingen
+            </label>
+        </div>
     </div>
     
     <!-- De kaart -->
     <div id="map"></div>
+    
+    <!-- Quick Spot button -->
+    <button class="quick-spot-btn" onclick="window.location.href='spot.html'" title="Snelle waarneming toevoegen">
+        +
+    </button>
     
     <!-- Leaflet JavaScript -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
