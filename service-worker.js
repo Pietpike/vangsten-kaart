@@ -18,6 +18,22 @@ const APP_FILES = [
     '/vangsten-kaart/spot.js'
 ];
 
+// Veilig een response opslaan in de cache.
+// Clone kan falen bij opaque responses (cross-origin zonder CORS)
+// of bij responses die al door de browser zijn geconsumeerd.
+function cacheResponse(request, response) {
+    if (!response || !response.ok) return;
+    try {
+        const responseClone = response.clone();
+        caches.open(CACHE_NAME).then(cache => {
+            cache.put(request, responseClone);
+        });
+    } catch (e) {
+        // Niet alle responses kunnen gecached worden — dat is geen probleem
+        console.log('Niet gecached:', request.url);
+    }
+}
+
 // Installeer: cache alle bestanden voor offline fallback
 self.addEventListener('install', event => {
     event.waitUntil(
@@ -64,9 +80,7 @@ self.addEventListener('fetch', event => {
             caches.match(event.request).then(cached => {
                 if (cached) return cached;
                 return fetch(event.request).then(networkResponse => {
-                    caches.open(CACHE_NAME).then(cache => {
-                        cache.put(event.request, networkResponse.clone());
-                    });
+                    cacheResponse(event.request, networkResponse);
                     return networkResponse;
                 });
             })
@@ -80,10 +94,7 @@ self.addEventListener('fetch', event => {
     event.respondWith(
         fetch(event.request)
             .then(networkResponse => {
-                // Bewaar de nieuwe versie in cache voor offline gebruik
-                caches.open(CACHE_NAME).then(cache => {
-                    cache.put(event.request, networkResponse.clone());
-                });
+                cacheResponse(event.request, networkResponse);
                 return networkResponse;
             })
             .catch(() => {
