@@ -2,7 +2,7 @@
 const SUPABASE_URL = 'https://hezjtqaowjpyvkadeisp.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhlemp0cWFvd2pweXZrYWRlaXNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM0MTQ3NTMsImV4cCI6MjA2ODk5MDc1M30.hq0IwhnnrJIXfTMGNE6PJkB0qhx2t7h3h0UOpZGi7wo';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // GPS variabelen
 let currentLat = null;
@@ -19,7 +19,7 @@ let gpsManualTimeout = null;
 
 // Check authentication
 async function checkAuth() {
-    const { data } = await supabase.auth.getSession();
+    const { data } = await supabaseClient.auth.getSession();
     if (!data.session) {
         window.location.href = 'login.html';
         return false;
@@ -194,7 +194,7 @@ document.getElementById('spotForm').addEventListener('submit', async (e) => {
 
     try {
         // Haal huidige user op
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await supabaseClient.auth.getUser();
 
         if (!user) {
             showMessage('error', 'Je bent niet ingelogd');
@@ -261,7 +261,7 @@ document.getElementById('spotForm').addEventListener('submit', async (e) => {
         console.log('Sighting data:', sightingData);
 
         // Insert in database
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('sightings')
             .insert(sightingData)
             .select();
