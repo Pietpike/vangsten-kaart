@@ -324,3 +324,320 @@ function toggleActivityType(type) {
     activeActivityTypes[type] = checkbox.checked;
     applyFilters();
 }
+
+// ====================================
+// FASE 3 — SESSIE & VANGST FUNCTIONALITEIT
+// ====================================
+
+// State voor actieve sessie
+let activeSession = null;
+let userLocation = null;
+let userEmail = null;
+
+// Initialiseer Fase 3 (bij pagina load)
+async function initPhase3() {
+    // Haal huidige user op
+    const { data } = await supabaseClient.auth.getSession();
+    if (data.session) {
+        userEmail = data.session.user.email;
+    }
+
+    // Laad vorige sessie uit localStorage (als deze bestaat)
+    loadSessionFromStorage();
+
+    // Check GPS perms
+    if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(
+            position => {
+                userLocation = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    accuracy: position.coords.accuracy
+                };
+            },
+            error => console.warn('GPS unavailable:', error),
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+        );
+    }
+
+    // Setup slide-up panel drag
+    setupPanelDrag();
+}
+
+// Laad sessie uit localStorage
+function loadSessionFromStorage() {
+    const stored = localStorage.getItem('activeSession');
+    if (stored) {
+        activeSession = JSON.parse(stored);
+        updateSessionUI();
+        showPanel();
+    }
+}
+
+// Sla sessie op in localStorage
+function saveSessionToStorage() {
+    if (activeSession) {
+        localStorage.setItem('activeSession', JSON.stringify(activeSession));
+    } else {
+        localStorage.removeItem('activeSession');
+    }
+}
+
+// Update sessie UI
+function updateSessionUI() {
+    const sessionInfo = document.getElementById('sessionInfo');
+    const btnStart = document.getElementById('btnStartSession');
+    const catchSection = document.getElementById('catchSection');
+    const stopForm = document.getElementById('stopSessionForm');
+
+    if (activeSession) {
+        sessionInfo.classList.add('active');
+        const elapsed = Math.floor((Date.now() - activeSession.start_time) / 1000 / 60);
+        sessionInfo.innerHTML = `✅ Sessie actief<br><span id="sessionTime" style="font-size: 12px; color: #666;">${elapsed} minuten</span>`;
+        btnStart.style.display = 'none';
+        catchSection.style.display = 'block';
+        stopForm.style.display = 'block';
+        document.getElementById('btnAddCatch').disabled = false;
+
+        // Update tijdweergave elke minuut
+        if (!window.sessionUpdateInterval) {
+            window.sessionUpdateInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - activeSession.start_time) / 1000 / 60);
+                const timeEl = document.getElementById('sessionTime');
+                if (timeEl) {
+                    timeEl.textContent = `${elapsed} minuten`;
+                }
+            }, 60000);
+        }
+    } else {
+        sessionInfo.classList.remove('active');
+        sessionInfo.innerHTML = 'Geen actieve sessie';
+        btnStart.style.display = 'block';
+        catchSection.style.display = 'none';
+        stopForm.style.display = 'none';
+
+        if (window.sessionUpdateInterval) {
+            clearInterval(window.sessionUpdateInterval);
+            window.sessionUpdateInterval = null;
+        }
+    }
+}
+
+// Start Sessie
+async function startSession() {
+    if (!userLocation) {
+        alert('GPS niet beschikbaar. Zorg ervoor dat locatieservices ingeschakeld zijn.');
+        return;
+    }
+
+    activeSession = {
+        id: 'session_' + Date.now(),
+        start_time: Date.now(),
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        user_email: userEmail,
+        started_at: new Date().toISOString(),
+        created_at: new Date().toISOString()
+    };
+
+    // Schrijf naar Supabase
+    try {
+        const { error } = await supabaseClient
+            .from('field_sessions')
+            .insert({
+                id: activeSession.id,
+                user_email: activeSession.user_email,
+                start_latitude: activeSession.latitude,
+                start_longitude: activeSession.longitude,
+                started_at: activeSession.started_at,
+                created_at: activeSession.created_at
+            });
+
+        if (error) throw error;
+
+        saveSessionToStorage();
+        updateSessionUI();
+        showPanel();
+        showSuccessMessage('Sessie gestart!');
+    } catch (error) {
+        console.error('Error starting session:', error);
+        alert('Fout bij starten sessie: ' + error.message);
+        activeSession = null;
+    }
+}
+
+// Show Add Catch Form
+function showAddCatchForm() {
+    document.getElementById('catchForm').style.display = 'block';
+    document.getElementById('successMessage').style.display = 'none';
+}
+
+// Hide Add Catch Form
+function hideCatchForm() {
+    document.getElementById('catchForm').style.display = 'none';
+    document.getElementById('catchSpecies').value = '';
+    document.getElementById('catchLength').value = '';
+    document.getElementById('catchCount').value = '1';
+    document.getElementById('catchNotes').value = '';
+}
+
+// Save Catch
+async function saveCatch() {
+    if (!activeSession) {
+        alert('Geen actieve sessie!');
+        return;
+    }
+
+    const species = document.getElementById('catchSpecies').value;
+    if (!species) {
+        alert('Selecteer een vissoort!');
+        return;
+    }
+
+    if (!userLocation) {
+        alert('GPS niet beschikbaar!');
+        return;
+    }
+
+    const catchRecord = {
+        id: 'catch_' + Date.now(),
+        session_id: activeSession.id,
+        species: species,
+        length_cm: parseInt(document.getElementById('catchLength').value) || null,
+        count: parseInt(document.getElementById('catchCount').value) || 1,
+        notes: document.getElementById('catchNotes').value || null,
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        caught_at: new Date().toISOString(),
+        created_at: new Date().toISOString()
+    };
+
+    try {
+        const { error } = await supabaseClient
+            .from('field_catches')
+            .insert({
+                id: catchRecord.id,
+                session_id: catchRecord.session_id,
+                species: catchRecord.species,
+                length_cm: catchRecord.length_cm,
+                count: catchRecord.count,
+                notes: catchRecord.notes,
+                latitude: catchRecord.latitude,
+                longitude: catchRecord.longitude,
+                caught_at: catchRecord.caught_at,
+                created_at: catchRecord.created_at
+            });
+
+        if (error) throw error;
+
+        showSuccessMessage(`Vangst opgeslagen: ${species}${catchRecord.length_cm ? ' (' + catchRecord.length_cm + 'cm)' : ''}`);
+        hideCatchForm();
+    } catch (error) {
+        console.error('Error saving catch:', error);
+        alert('Fout bij opslaan: ' + error.message);
+    }
+}
+
+// Show Stop Session Form
+function showStopSessionForm() {
+    document.getElementById('stopSessionForm').style.display = 'block';
+}
+
+// Hide Stop Session Form
+function hideStopSessionForm() {
+    document.getElementById('stopSessionForm').style.display = 'none';
+}
+
+// Stop Sessie
+async function stopSession() {
+    if (!activeSession) return;
+
+    const sessionUpdate = {
+        location: document.getElementById('stopLocation').value || null,
+        water_temp: parseFloat(document.getElementById('waterTemp').value) || null,
+        clarity_cm: parseInt(document.getElementById('clarity').value) || null,
+        flow_rate: document.getElementById('flowRate').value || null,
+        depth_m: parseFloat(document.getElementById('depth').value) || null,
+        bottom_type: document.getElementById('bottomType').value || null,
+        notes: document.getElementById('stopNotes').value || null,
+        end_latitude: userLocation?.latitude,
+        end_longitude: userLocation?.longitude,
+        ended_at: new Date().toISOString()
+    };
+
+    try {
+        const { error } = await supabaseClient
+            .from('field_sessions')
+            .update(sessionUpdate)
+            .eq('id', activeSession.id);
+
+        if (error) throw error;
+
+        activeSession = null;
+        saveSessionToStorage();
+        updateSessionUI();
+        hideStopSessionForm();
+        hidePanel();
+        showSuccessMessage('Sessie beëindigd!');
+    } catch (error) {
+        console.error('Error stopping session:', error);
+        alert('Fout bij beëindigen sessie: ' + error.message);
+    }
+}
+
+// Panel Controls
+function showPanel() {
+    document.getElementById('bottomPanel').classList.add('active');
+}
+
+function hidePanel() {
+    document.getElementById('bottomPanel').classList.remove('active');
+}
+
+function showSuccessMessage(message) {
+    const msgEl = document.getElementById('successMessage');
+    msgEl.textContent = message;
+    msgEl.style.display = 'block';
+    setTimeout(() => {
+        msgEl.style.display = 'none';
+    }, 3000);
+}
+
+// Setup drag handle voor slide-up panel
+function setupPanelDrag() {
+    const panel = document.getElementById('bottomPanel');
+    const handle = document.querySelector('.panel-handle');
+    let isDragging = false;
+    let startY = 0;
+    let currentY = 0;
+
+    handle.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        startY = e.clientY;
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        currentY = e.clientY - startY;
+
+        if (currentY > 0) {
+            panel.style.transform = `translateY(${currentY}px)`;
+        }
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (!isDragging) return;
+        isDragging = false;
+
+        // Snap naar open/gesloten
+        if (currentY > 50) {
+            hidePanel();
+        } else {
+            showPanel();
+        }
+        panel.style.transform = '';
+    });
+}
+
+// Roep Fase 3 init aan na auth check
+if (checkAuth().then(isAuth => isAuth && initPhase3()));
