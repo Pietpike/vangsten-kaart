@@ -638,6 +638,7 @@ function hideStopSessionForm() {
     document.getElementById('flowRate').value = '';
     document.getElementById('depth').value = '';
     document.getElementById('bottomType').value = '';
+    document.getElementById('waterType').value = '';
     document.getElementById('stopNotes').value = '';
 }
 
@@ -653,6 +654,7 @@ async function stopSession() {
         stroomsnelheid: document.getElementById('flowRate').value || null,
         diepte: parseFloat(document.getElementById('depth').value) || null,
         bodem_hardheid: document.getElementById('bottomType').value || null,
+        watersoort: document.getElementById('waterType').value || null,
         notities: document.getElementById('stopNotes').value || null
     };
 

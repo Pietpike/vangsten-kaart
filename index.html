@@ -571,8 +571,15 @@
                     <input type="number" id="waterTemp" step="0.1" placeholder="bijv. 15.5">
                 </div>
                 <div class="form-group">
-                    <label for="clarity">Helderheid (cm)</label>
-                    <input type="number" id="clarity" placeholder="bijv. 80">
+                    <label for="clarity">Helderheid</label>
+                    <select id="clarity">
+                        <option value="">Selecteer...</option>
+                        <option value="Zeer troebel">Zeer troebel</option>
+                        <option value="Troebel">Troebel</option>
+                        <option value="Matig helder">Matig helder</option>
+                        <option value="Helder">Helder</option>
+                        <option value="Kristal helder">Kristal helder</option>
+                    </select>
                 </div>
             </div>
 
@@ -581,9 +588,8 @@
                     <label for="flowRate">Stroomsnelheid</label>
                     <select id="flowRate">
                         <option value="">Selecteer...</option>
-                        <option value="Stilstaand">Stilstaand</option>
-                        <option value="Licht stromend">Licht stromend</option>
-                        <option value="Matig stromend">Matig stromend</option>
+                        <option value="Stilstaand tot licht stromend">Stilstaand tot licht stromend</option>
+                        <option value="Licht tot matig stromend">Licht tot matig stromend</option>
                         <option value="Snelstromend">Snelstromend</option>
                     </select>
                 </div>
@@ -597,11 +603,24 @@
                 <label for="bottomType">Bodemhardheid</label>
                 <select id="bottomType">
                     <option value="">Selecteer...</option>
-                    <option value="Zand">Zand</option>
-                    <option value="Slik">Slik</option>
-                    <option value="Stenen">Stenen</option>
-                    <option value="Grind">Grind</option>
-                    <option value="Gemengd">Gemengd</option>
+                    <option value="Hard">Hard</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Zacht">Zacht</option>
+                    <option value="Onbekend">Onbekend</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="waterType">Watersoort</label>
+                <select id="waterType">
+                    <option value="">Selecteer...</option>
+                    <option value="Rivier">Rivier</option>
+                    <option value="Gracht">Gracht</option>
+                    <option value="Meer">Meer</option>
+                    <option value="Kanaal">Kanaal</option>
+                    <option value="Polder">Polder</option>
+                    <option value="Park">Park</option>
+                    <option value="Vijver">Vijver</option>
                 </select>
             </div>
 
