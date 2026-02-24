@@ -81,18 +81,26 @@ function createIcon(color, isSighting) {
 
 // Iconen voor vangsten (volledige opacity)
 const fishIcons = {
-    snoek:      createIcon('green',  false),
-    snoekbaars: createIcon('grey',   false),
-    baars:      createIcon('red',    false),
-    overig:     createIcon('violet', false)
+    snoek:      createIcon('green',   false),
+    snoekbaars: createIcon('grey',    false),
+    baars:      createIcon('red',     false),
+    roofblei:   createIcon('orange',  false),
+    meerval:    createIcon('brown',   false),
+    winde:      createIcon('blue',    false),
+    grondel:    createIcon('purple',  false),
+    overig:     createIcon('violet',  false)
 };
 
 // Iconen voor waarnemingen (70% opacity via CSS .sighting-marker)
 const sightingFishIcons = {
-    snoek:      createIcon('green',  true),
-    snoekbaars: createIcon('grey',   true),
-    baars:      createIcon('red',    true),
-    overig:     createIcon('violet', true)
+    snoek:      createIcon('green',   true),
+    snoekbaars: createIcon('grey',    true),
+    baars:      createIcon('red',     true),
+    roofblei:   createIcon('orange',  true),
+    meerval:    createIcon('brown',   true),
+    winde:      createIcon('blue',    true),
+    grondel:    createIcon('purple',  true),
+    overig:     createIcon('violet',  true)
 };
 
 // ====================================
