@@ -127,10 +127,10 @@ let activeActivityTypes = { catch: true, sighting: true };
 
 async function loadAllData() {
     try {
-        console.log('Vangsten, waarnemingen en veld-vangsten ophalen van Supabase...');
+        console.log('Vangsten en waarnemingen ophalen van Supabase...');
 
-        // Alle queries parallel uitvoeren
-        const [catchesResult, sightingsResult, fieldCatchesResult] = await Promise.all([
+        // Queries parallel uitvoeren
+        const [catchesResult, sightingsResult] = await Promise.all([
             supabaseClient
                 .from('catches')
                 .select(`
@@ -141,9 +141,6 @@ async function loadAllData() {
                 `),
             supabaseClient
                 .from('sightings')
-                .select('*'),
-            supabaseClient
-                .from('field_catches')
                 .select('*')
         ]);
 
@@ -153,19 +150,14 @@ async function loadAllData() {
         if (sightingsResult.error) {
             console.error('Fout bij ophalen waarnemingen:', sightingsResult.error);
         }
-        if (fieldCatchesResult.error) {
-            console.error('Fout bij ophalen veld-vangsten:', fieldCatchesResult.error);
-        }
 
-        const catches      = catchesResult.data      || [];
-        const sightings    = sightingsResult.data    || [];
-        const fieldCatches = fieldCatchesResult.data || [];
-        
+        const catches   = catchesResult.data   || [];
+        const sightings = sightingsResult.data || [];
+
         console.log('Vangsten geladen:', catches.length);
         console.log('Waarnemingen geladen:', sightings.length);
-        console.log('Veld-vangsten geladen:', fieldCatches.length);
 
-        if (catches.length === 0 && sightings.length === 0 && fieldCatches.length === 0) {
+        if (catches.length === 0 && sightings.length === 0) {
             console.warn('Geen data gevonden in de database');
             alert('Er zijn nog geen vangsten of waarnemingen in de database');
             return;
@@ -274,51 +266,6 @@ async function loadAllData() {
             allMarkers.push(marker);
         });
 
-        // ---- Veld-vangsten markers maken ----
-        fieldCatches.forEach(vangst => {
-            if (!vangst.latitude || !vangst.longitude) {
-                console.warn('Veld-vangst zonder GPS coordinaten:', vangst);
-                return;
-            }
-
-            const vissoort = vangst.species ? vangst.species.toLowerCase() : 'overig';
-            const icon = fishIcons[vissoort] || fishIcons.overig;
-
-            const marker = L.marker([vangst.latitude, vangst.longitude], { icon: icon });
-
-            let datumTekst = 'Onbekend';
-            if (vangst.caught_at) {
-                try {
-                    const datum = new Date(vangst.caught_at);
-                    datumTekst = datum.toLocaleDateString('nl-NL', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-                } catch (e) {
-                    datumTekst = vangst.caught_at;
-                }
-            }
-
-            const popupContent = `
-                <div style="min-width: 200px;">
-                    <h3 style="margin: 0 0 10px 0; color: #2c3e50;">🎣 ${vangst.species || 'Onbekend'} (Veld)</h3>
-                    <p style="margin: 5px 0;"><strong>📅 Datum:</strong> ${datumTekst}</p>
-                    ${vangst.length_cm ? '<p style="margin: 5px 0;"><strong>📏 Lengte:</strong> ' + vangst.length_cm + ' cm</p>' : ''}
-                    <p style="margin: 5px 0;"><strong>🔢 Aantal:</strong> ${vangst.count || '1'}</p>
-                    ${vangst.notes ? '<p style="margin: 5px 0;"><strong>📝 Notities:</strong> ' + vangst.notes + '</p>' : ''}
-                </div>
-            `;
-
-            marker.bindPopup(popupContent);
-            marker.fishType     = vissoort;
-            marker.activityType = 'catch';
-
-            allMarkers.push(marker);
-        });
-
         // Cluster groep op de kaart zetten en filters toepassen
         map.addLayer(markerClusterGroup);
         applyFilters();
@@ -329,7 +276,7 @@ async function loadAllData() {
             map.fitBounds(group.getBounds().pad(0.1));
         }
         
-        console.log('✅ Kaart succesvol geladen met', allMarkers.length, 'markers (catches:', catches.length, '+ sightings:', sightings.length, '+ field_catches:', fieldCatches.length, ')');
+        console.log('✅ Kaart succesvol geladen met', allMarkers.length, 'markers (catches:', catches.length, '+ sightings:', sightings.length, ')');
         
     } catch (error) {
         console.error('Onverwachte fout:', error);
