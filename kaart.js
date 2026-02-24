@@ -379,6 +379,12 @@ function toggleActivityType(type) {
     applyFilters();
 }
 
+// Toggle filter paneel
+function toggleFilters() {
+    const filterControls = document.getElementById('filterControls');
+    filterControls.classList.toggle('active');
+}
+
 // ====================================
 // FASE 3 — SESSIE & VANGST FUNCTIONALITEIT
 // ====================================
