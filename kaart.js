@@ -42,11 +42,12 @@ async function logout() {
     }
 }
 
-// Voer auth check uit EN laad data
+// Voer auth check uit EN laad data + fase 3
 checkAuth().then(isAuthenticated => {
     if (isAuthenticated) {
-        console.log('Gebruiker is geauthenticeerd, kaart wordt geladen');
+        console.log('Gebruiker is geauthenticeerd, kaart en fase 3 worden geladen');
         loadAllData();
+        initPhase3();
     }
 });
 
@@ -126,10 +127,10 @@ let activeActivityTypes = { catch: true, sighting: true };
 
 async function loadAllData() {
     try {
-        console.log('Vangsten en waarnemingen ophalen van Supabase...');
-        
-        // Beide queries parallel uitvoeren
-        const [catchesResult, sightingsResult] = await Promise.all([
+        console.log('Vangsten, waarnemingen en veld-vangsten ophalen van Supabase...');
+
+        // Alle queries parallel uitvoeren
+        const [catchesResult, sightingsResult, fieldCatchesResult] = await Promise.all([
             supabaseClient
                 .from('catches')
                 .select(`
@@ -140,23 +141,31 @@ async function loadAllData() {
                 `),
             supabaseClient
                 .from('sightings')
+                .select('*'),
+            supabaseClient
+                .from('field_catches')
                 .select('*')
         ]);
-        
+
         if (catchesResult.error) {
             console.error('Fout bij ophalen vangsten:', catchesResult.error);
         }
         if (sightingsResult.error) {
             console.error('Fout bij ophalen waarnemingen:', sightingsResult.error);
         }
-        
-        const catches   = catchesResult.data   || [];
-        const sightings = sightingsResult.data || [];
+        if (fieldCatchesResult.error) {
+            console.error('Fout bij ophalen veld-vangsten:', fieldCatchesResult.error);
+        }
+
+        const catches      = catchesResult.data      || [];
+        const sightings    = sightingsResult.data    || [];
+        const fieldCatches = fieldCatchesResult.data || [];
         
         console.log('Vangsten geladen:', catches.length);
         console.log('Waarnemingen geladen:', sightings.length);
-        
-        if (catches.length === 0 && sightings.length === 0) {
+        console.log('Veld-vangsten geladen:', fieldCatches.length);
+
+        if (catches.length === 0 && sightings.length === 0 && fieldCatches.length === 0) {
             console.warn('Geen data gevonden in de database');
             alert('Er zijn nog geen vangsten of waarnemingen in de database');
             return;
@@ -216,19 +225,19 @@ async function loadAllData() {
                 console.warn('Waarneming zonder GPS coordinaten:', waarneming);
                 return;
             }
-            
+
             const vissoort = waarneming.soort ? waarneming.soort.toLowerCase() : 'overig';
             const icon = sightingFishIcons[vissoort] || sightingFishIcons.overig;
-            
+
             const marker = L.marker([waarneming.gps_lat, waarneming.gps_long], { icon: icon });
-            
+
             let datumTekst = 'Onbekend';
             if (waarneming.sighting_datetime) {
                 try {
                     const datum = new Date(waarneming.sighting_datetime);
-                    datumTekst = datum.toLocaleDateString('nl-NL', { 
-                        year: 'numeric', 
-                        month: 'long', 
+                    datumTekst = datum.toLocaleDateString('nl-NL', {
+                        year: 'numeric',
+                        month: 'long',
                         day: 'numeric',
                         hour: '2-digit',
                         minute: '2-digit'
@@ -237,7 +246,7 @@ async function loadAllData() {
                     datumTekst = waarneming.sighting_datetime;
                 }
             }
-            
+
             // Waarneming type vertalen naar leesbare tekst
             const waarnemingTypen = {
                 'live':   'Live op locatie',
@@ -245,7 +254,7 @@ async function loadAllData() {
                 'video':  'Op video',
                 'drone':  'Drone opname'
             };
-            
+
             const popupContent = `
                 <div style="min-width: 200px;">
                     <h3 style="margin: 0 0 10px 0; color: #E65100;">👁️ Waarneming: ${waarneming.soort || 'Onbekend'}</h3>
@@ -257,14 +266,59 @@ async function loadAllData() {
                     ${waarneming.media_url ? '<p style="margin: 5px 0;"><strong>📸 Media:</strong> <a href="' + waarneming.media_url + '" target="_blank" style="color:#E65100;">Bekijk</a></p>' : ''}
                 </div>
             `;
-            
+
             marker.bindPopup(popupContent);
             marker.fishType     = vissoort;
             marker.activityType = 'sighting';
-            
+
             allMarkers.push(marker);
         });
-        
+
+        // ---- Veld-vangsten markers maken ----
+        fieldCatches.forEach(vangst => {
+            if (!vangst.latitude || !vangst.longitude) {
+                console.warn('Veld-vangst zonder GPS coordinaten:', vangst);
+                return;
+            }
+
+            const vissoort = vangst.species ? vangst.species.toLowerCase() : 'overig';
+            const icon = fishIcons[vissoort] || fishIcons.overig;
+
+            const marker = L.marker([vangst.latitude, vangst.longitude], { icon: icon });
+
+            let datumTekst = 'Onbekend';
+            if (vangst.caught_at) {
+                try {
+                    const datum = new Date(vangst.caught_at);
+                    datumTekst = datum.toLocaleDateString('nl-NL', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                } catch (e) {
+                    datumTekst = vangst.caught_at;
+                }
+            }
+
+            const popupContent = `
+                <div style="min-width: 200px;">
+                    <h3 style="margin: 0 0 10px 0; color: #2c3e50;">🎣 ${vangst.species || 'Onbekend'} (Veld)</h3>
+                    <p style="margin: 5px 0;"><strong>📅 Datum:</strong> ${datumTekst}</p>
+                    ${vangst.length_cm ? '<p style="margin: 5px 0;"><strong>📏 Lengte:</strong> ' + vangst.length_cm + ' cm</p>' : ''}
+                    <p style="margin: 5px 0;"><strong>🔢 Aantal:</strong> ${vangst.count || '1'}</p>
+                    ${vangst.notes ? '<p style="margin: 5px 0;"><strong>📝 Notities:</strong> ' + vangst.notes + '</p>' : ''}
+                </div>
+            `;
+
+            marker.bindPopup(popupContent);
+            marker.fishType     = vissoort;
+            marker.activityType = 'catch';
+
+            allMarkers.push(marker);
+        });
+
         // Cluster groep op de kaart zetten en filters toepassen
         map.addLayer(markerClusterGroup);
         applyFilters();
@@ -275,7 +329,7 @@ async function loadAllData() {
             map.fitBounds(group.getBounds().pad(0.1));
         }
         
-        console.log('✅ Kaart succesvol geladen met', allMarkers.length, 'markers!');
+        console.log('✅ Kaart succesvol geladen met', allMarkers.length, 'markers (catches:', catches.length, '+ sightings:', sightings.length, '+ field_catches:', fieldCatches.length, ')');
         
     } catch (error) {
         console.error('Onverwachte fout:', error);
@@ -332,14 +386,15 @@ function toggleActivityType(type) {
 // State voor actieve sessie
 let activeSession = null;
 let userLocation = null;
-let userEmail = null;
+let userId = null;
 
 // Initialiseer Fase 3 (bij pagina load)
 async function initPhase3() {
     // Haal huidige user op
     const { data } = await supabaseClient.auth.getSession();
     if (data.session) {
-        userEmail = data.session.user.email;
+        userId = data.session.user.id;
+        console.log('Gebruiker ID:', userId);
     }
 
     // Laad vorige sessie uit localStorage (als deze bestaat)
@@ -386,17 +441,22 @@ function saveSessionToStorage() {
 // Update sessie UI
 function updateSessionUI() {
     const sessionInfo = document.getElementById('sessionInfo');
+    const statusSpan = sessionInfo.querySelector('span:first-child');
+    const timeSpan = document.getElementById('sessionTime');
     const btnStart = document.getElementById('btnStartSession');
     const catchSection = document.getElementById('catchSection');
+    const stopSessionSection = document.getElementById('stopSessionSection');
     const stopForm = document.getElementById('stopSessionForm');
 
     if (activeSession) {
         sessionInfo.classList.add('active');
         const elapsed = Math.floor((Date.now() - activeSession.start_time) / 1000 / 60);
-        sessionInfo.innerHTML = `✅ Sessie actief<br><span id="sessionTime" style="font-size: 12px; color: #666;">${elapsed} minuten</span>`;
+        statusSpan.textContent = '✅ Sessie actief';
+        timeSpan.textContent = `${elapsed} minuten`;
         btnStart.style.display = 'none';
         catchSection.style.display = 'block';
-        stopForm.style.display = 'block';
+        stopSessionSection.style.display = 'block';
+        stopForm.style.display = 'none';
         document.getElementById('btnAddCatch').disabled = false;
 
         // Update tijdweergave elke minuut
@@ -411,9 +471,11 @@ function updateSessionUI() {
         }
     } else {
         sessionInfo.classList.remove('active');
-        sessionInfo.innerHTML = 'Geen actieve sessie';
+        statusSpan.textContent = 'Geen actieve sessie';
+        timeSpan.textContent = '';
         btnStart.style.display = 'block';
         catchSection.style.display = 'none';
+        stopSessionSection.style.display = 'none';
         stopForm.style.display = 'none';
 
         if (window.sessionUpdateInterval) {
@@ -435,25 +497,34 @@ async function startSession() {
         start_time: Date.now(),
         latitude: userLocation.latitude,
         longitude: userLocation.longitude,
-        user_email: userEmail,
-        started_at: new Date().toISOString(),
-        created_at: new Date().toISOString()
+        user_id: userId,
+        started_at: new Date().toISOString()
     };
 
     // Schrijf naar Supabase
     try {
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        const insertData = {
+            id: activeSession.id,
+            user_id: activeSession.user_id,
+            start_tijd: activeSession.started_at,
+            datum: today,
+            gps_lat: activeSession.latitude,
+            gps_lng: activeSession.longitude
+        };
+        console.log('Attempting to insert field_sessions with:', JSON.stringify(insertData, null, 2));
+
         const { error } = await supabaseClient
             .from('field_sessions')
-            .insert({
-                id: activeSession.id,
-                user_email: activeSession.user_email,
-                start_latitude: activeSession.latitude,
-                start_longitude: activeSession.longitude,
-                started_at: activeSession.started_at,
-                created_at: activeSession.created_at
-            });
+            .insert(insertData);
 
-        if (error) throw error;
+        if (error) {
+            console.error('🔴 SUPABASE ERROR:', JSON.stringify(error, null, 2));
+            console.error('Error message:', error.message);
+            console.error('Error details:', error.details);
+            console.error('Error hint:', error.hint);
+            throw error;
+        }
 
         saveSessionToStorage();
         updateSessionUI();
@@ -508,27 +579,32 @@ async function saveCatch() {
         notes: document.getElementById('catchNotes').value || null,
         latitude: userLocation.latitude,
         longitude: userLocation.longitude,
-        caught_at: new Date().toISOString(),
-        created_at: new Date().toISOString()
+        caught_at: new Date().toISOString()
     };
 
     try {
+        const catchInsertData = {
+            id: catchRecord.id,
+            field_session_id: catchRecord.session_id,
+            user_id: userId,
+            vangst_tijd: catchRecord.caught_at,
+            soort: catchRecord.species,
+            lengte: catchRecord.length_cm,
+            aantal: catchRecord.count,
+            gps_lat: catchRecord.latitude,
+            gps_lng: catchRecord.longitude,
+            notities: catchRecord.notes
+        };
+        console.log('Attempting to insert field_catches with:', JSON.stringify(catchInsertData));
+
         const { error } = await supabaseClient
             .from('field_catches')
-            .insert({
-                id: catchRecord.id,
-                session_id: catchRecord.session_id,
-                species: catchRecord.species,
-                length_cm: catchRecord.length_cm,
-                count: catchRecord.count,
-                notes: catchRecord.notes,
-                latitude: catchRecord.latitude,
-                longitude: catchRecord.longitude,
-                caught_at: catchRecord.caught_at,
-                created_at: catchRecord.created_at
-            });
+            .insert(catchInsertData);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Supabase field_catches error:', error);
+            throw error;
+        }
 
         showSuccessMessage(`Vangst opgeslagen: ${species}${catchRecord.length_cm ? ' (' + catchRecord.length_cm + 'cm)' : ''}`);
         hideCatchForm();
@@ -546,6 +622,14 @@ function showStopSessionForm() {
 // Hide Stop Session Form
 function hideStopSessionForm() {
     document.getElementById('stopSessionForm').style.display = 'none';
+    // Reset formulier velden
+    document.getElementById('stopLocation').value = '';
+    document.getElementById('waterTemp').value = '';
+    document.getElementById('clarity').value = '';
+    document.getElementById('flowRate').value = '';
+    document.getElementById('depth').value = '';
+    document.getElementById('bottomType').value = '';
+    document.getElementById('stopNotes').value = '';
 }
 
 // Stop Sessie
@@ -553,25 +637,28 @@ async function stopSession() {
     if (!activeSession) return;
 
     const sessionUpdate = {
-        location: document.getElementById('stopLocation').value || null,
-        water_temp: parseFloat(document.getElementById('waterTemp').value) || null,
-        clarity_cm: parseInt(document.getElementById('clarity').value) || null,
-        flow_rate: document.getElementById('flowRate').value || null,
-        depth_m: parseFloat(document.getElementById('depth').value) || null,
-        bottom_type: document.getElementById('bottomType').value || null,
-        notes: document.getElementById('stopNotes').value || null,
-        end_latitude: userLocation?.latitude,
-        end_longitude: userLocation?.longitude,
-        ended_at: new Date().toISOString()
+        eind_tijd: new Date().toISOString(),
+        locatie: document.getElementById('stopLocation').value || null,
+        watertemperatuur: parseFloat(document.getElementById('waterTemp').value) || null,
+        helderheid: document.getElementById('clarity').value || null,
+        stroomsnelheid: document.getElementById('flowRate').value || null,
+        diepte: parseFloat(document.getElementById('depth').value) || null,
+        bodem_hardheid: document.getElementById('bottomType').value || null,
+        notities: document.getElementById('stopNotes').value || null
     };
 
     try {
+        console.log('Attempting to update field_sessions with:', sessionUpdate);
+
         const { error } = await supabaseClient
             .from('field_sessions')
             .update(sessionUpdate)
             .eq('id', activeSession.id);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Supabase field_sessions update error:', error);
+            throw error;
+        }
 
         activeSession = null;
         saveSessionToStorage();
@@ -603,14 +690,20 @@ function showSuccessMessage(message) {
     }, 3000);
 }
 
-// Setup drag handle voor slide-up panel
+// Setup drag handle voor slide-up panel (mouse + touch)
 function setupPanelDrag() {
     const panel = document.getElementById('bottomPanel');
     const handle = document.querySelector('.panel-handle');
+    if (!handle) {
+        console.warn('Panel handle niet gevonden');
+        return;
+    }
+
     let isDragging = false;
     let startY = 0;
     let currentY = 0;
 
+    // Mouse events
     handle.addEventListener('mousedown', (e) => {
         isDragging = true;
         startY = e.clientY;
@@ -637,7 +730,34 @@ function setupPanelDrag() {
         }
         panel.style.transform = '';
     });
+
+    // Touch events
+    handle.addEventListener('touchstart', (e) => {
+        isDragging = true;
+        startY = e.touches[0].clientY;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        currentY = e.touches[0].clientY - startY;
+
+        if (currentY > 0) {
+            panel.style.transform = `translateY(${currentY}px)`;
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => {
+        if (!isDragging) return;
+        isDragging = false;
+
+        // Snap naar open/gesloten
+        if (currentY > 50) {
+            hidePanel();
+        } else {
+            showPanel();
+        }
+        panel.style.transform = '';
+    });
 }
 
-// Roep Fase 3 init aan na auth check
-if (checkAuth().then(isAuth => isAuth && initPhase3()));
+// Fase 3 wordt nu aangeroepen vanuit checkAuth().then() hierboven

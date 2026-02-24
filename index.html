@@ -7,7 +7,7 @@
     
     <!-- Favicon en App Iconen -->
     <link rel="icon" type="image/x-icon" href="icons/favicon.ico">
-    <link rel="manifest" href="/vangsten-kaart/manifest.json">
+    <link rel="manifest" href="manifest.json">
     
     <!-- iOS App Meta Tags -->
     <meta name="mobile-web-app-capable" content="yes">
@@ -231,6 +231,31 @@
             background: #da190b;
         }
 
+        /* Open panel knop (FAB linksonder) */
+        .open-panel-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 1000;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            font-size: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .open-panel-btn:hover {
+            background: #45a049;
+        }
+
         .form-group {
             margin: 12px 0;
         }
@@ -323,6 +348,14 @@
                 padding: 10px;
             }
             
+            .open-panel-btn {
+                bottom: 20px;
+                left: 15px;
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+            }
+
             .quick-spot-btn {
                 bottom: 80px;
                 right: 15px;
@@ -400,6 +433,13 @@
         <div id="catchSection" style="display: none;">
             <button id="btnAddCatch" class="panel-button btn-add-catch" onclick="showAddCatchForm()">
                 Vangst Toevoegen
+            </button>
+        </div>
+
+        <!-- Stop Sessie (verborgen tot sessie start) -->
+        <div id="stopSessionSection" style="display: none;">
+            <button id="btnStopSession" class="panel-button btn-stop-session" onclick="showStopSessionForm()">
+                Stop Sessie
             </button>
         </div>
 
@@ -500,7 +540,12 @@
         </div>
     </div>
 
-    <!-- Quick Spot button (verplaatst) -->
+    <!-- Open Panel button (linksonder) -->
+    <button class="open-panel-btn" onclick="showPanel()" title="Veld sessie panel openen">
+        ≡
+    </button>
+
+    <!-- Quick Spot button (rechtsonder) -->
     <button class="quick-spot-btn" onclick="window.location.href='spot.html'" title="Snelle waarneming toevoegen">
         +
     </button>
@@ -520,8 +565,8 @@
     <!-- Service Worker registratie -->
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/vangsten-kaart/service-worker.js')
-                .then(reg => console.log('Service Worker geregistreerd'))
+            navigator.serviceWorker.register('service-worker.js')
+                .then(reg => console.log('✅ Service Worker geregistreerd'))
                 .catch(err => console.log('Service Worker niet beschikbaar:', err));
         }
     </script>
