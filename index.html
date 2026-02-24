@@ -60,46 +60,10 @@
             background: #d32f2f;
         }
         
-        /* Filter toggle knop - rechts bovenaan */
-        .filter-toggle-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1001;
-            background: #2196F3;
-            color: white;
-            border: none;
-            padding: 12px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            transition: background 0.2s;
-        }
 
-        .filter-toggle-btn:hover {
-            background: #0b7dda;
-        }
-
-        /* Filter paneel - slide-in */
+        /* Filter paneel - verborgen (filters niet meer zichtbaar) */
         .filter-controls {
-            position: fixed;
-            top: 60px;
-            right: -350px;
-            width: 330px;
-            max-height: 70vh;
-            overflow-y: auto;
-            z-index: 1000;
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: -2px 2px 10px rgba(0,0,0,0.3);
-            transition: right 0.3s ease-out;
-        }
-
-        .filter-controls.active {
-            right: 10px;
+            display: none;
         }
 
         .filter-controls button {
@@ -148,30 +112,62 @@
             cursor: pointer;
         }
         
-        /* Quick Spot button */
-        .quick-spot-btn {
+        /* FAB Knoppen */
+        .fab-button {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
             z-index: 1000;
-            width: 60px;
-            height: 60px;
+            width: 56px;
+            height: 56px;
             border-radius: 50%;
-            background: #FF9800;
             color: white;
             border: none;
-            font-size: 30px;
+            font-size: 28px;
+            font-weight: bold;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: all 0.2s;
+            outline: none;
         }
-        
-        .quick-spot-btn:hover {
-            background: #F57C00;
+
+        /* + Knop (Waarneming) - Oranje - Rechtsonder */
+        .fab-sighting {
+            bottom: 20px;
+            right: 20px;
+            background: #FF6B35;
+            font-size: 32px;
         }
-        
+
+        .fab-sighting:hover {
+            background: #E85A2D;
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+        }
+
+        .fab-sighting:active {
+            transform: scale(0.95);
+        }
+
+        /* ≡ Knop (Sessie) - Groen - Linksonder */
+        .fab-session {
+            bottom: 20px;
+            left: 20px;
+            background: #4CAF50;
+            font-size: 26px;
+        }
+
+        .fab-session:hover {
+            background: #45a049;
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+        }
+
+        .fab-session:active {
+            transform: scale(0.95);
+        }
+
         /* Slide-up panel voor sessie en vangsten */
         .bottom-panel {
             position: fixed;
@@ -266,30 +262,6 @@
             background: #da190b;
         }
 
-        /* Open panel knop (FAB linksonder) */
-        .open-panel-btn {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            z-index: 1000;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            font-size: 24px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.2s;
-        }
-
-        .open-panel-btn:hover {
-            background: #45a049;
-        }
 
         .form-group {
             margin: 12px 0;
@@ -411,20 +383,19 @@
                 font-size: 13px;
             }
             
-            .open-panel-btn {
-                bottom: 20px;
-                left: 15px;
-                width: 50px;
-                height: 50px;
-                font-size: 20px;
+            .fab-button {
+                width: 56px;
+                height: 56px;
+                font-size: 24px;
+                bottom: 16px;
             }
 
-            .quick-spot-btn {
-                bottom: 80px;
-                right: 15px;
-                width: 50px;
-                height: 50px;
-                font-size: 24px;
+            .fab-session {
+                left: 16px;
+            }
+
+            .fab-sighting {
+                right: 16px;
             }
             
             .leaflet-popup-content {
@@ -442,8 +413,6 @@
     <!-- Logout knop -->
     <button class="logout-btn" onclick="logout()">Uitloggen</button>
 
-    <!-- Filter toggle knop -->
-    <button class="filter-toggle-btn" onclick="toggleFilters()" title="Filters tonen/verbergen">🔍 Filter</button>
 
     <!-- Filter paneel -->
     <div class="filter-controls" id="filterControls">
@@ -606,13 +575,14 @@
         </div>
     </div>
 
-    <!-- Open Panel button (linksonder) -->
-    <button class="open-panel-btn" onclick="showPanel()" title="Veld sessie panel openen">
+    <!-- FAB Navigatieknoppen -->
+    <!-- Sessie Panel (≡) - Linksonder - Groen -->
+    <button class="fab-button fab-session" onclick="showPanel()" title="Veld sessie panel" aria-label="Veld sessie openen">
         ≡
     </button>
 
-    <!-- Quick Spot button (rechtsonder) -->
-    <button class="quick-spot-btn" onclick="window.location.href='spot.html'" title="Snelle waarneming toevoegen">
+    <!-- Waarneming (+) - Rechtsonder - Oranje -->
+    <button class="fab-button fab-sighting" onclick="window.location.href='spot.html'" title="Waarneming toevoegen" aria-label="Waarneming formulier openen">
         +
     </button>
     
