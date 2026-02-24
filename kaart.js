@@ -493,7 +493,6 @@ async function startSession() {
     }
 
     activeSession = {
-        id: 'session_' + Date.now(),
         start_time: Date.now(),
         latitude: userLocation.latitude,
         longitude: userLocation.longitude,
@@ -505,7 +504,6 @@ async function startSession() {
     try {
         const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
         const insertData = {
-            id: activeSession.id,
             user_id: activeSession.user_id,
             start_tijd: activeSession.started_at,
             datum: today,
@@ -514,9 +512,10 @@ async function startSession() {
         };
         console.log('Attempting to insert field_sessions with:', JSON.stringify(insertData, null, 2));
 
-        const { error } = await supabaseClient
+        const { data, error } = await supabaseClient
             .from('field_sessions')
-            .insert(insertData);
+            .insert(insertData)
+            .select();
 
         if (error) {
             console.error('🔴 SUPABASE ERROR:', JSON.stringify(error, null, 2));
@@ -524,6 +523,12 @@ async function startSession() {
             console.error('Error details:', error.details);
             console.error('Error hint:', error.hint);
             throw error;
+        }
+
+        // Sla gegenereerde ID op
+        if (data && data.length > 0) {
+            activeSession.id = data[0].id;
+            console.log('✅ Sessie aangemaakt met ID:', activeSession.id);
         }
 
         saveSessionToStorage();
@@ -571,7 +576,6 @@ async function saveCatch() {
     }
 
     const catchRecord = {
-        id: 'catch_' + Date.now(),
         session_id: activeSession.id,
         species: species,
         length_cm: parseInt(document.getElementById('catchLength').value) || null,
@@ -584,7 +588,6 @@ async function saveCatch() {
 
     try {
         const catchInsertData = {
-            id: catchRecord.id,
             field_session_id: catchRecord.session_id,
             user_id: userId,
             vangst_tijd: catchRecord.caught_at,
