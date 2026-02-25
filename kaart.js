@@ -341,6 +341,11 @@ let activeSession = null;
 let userLocation = null;
 let userId = null;
 
+// Vangstformulier kaart en pin
+let catchMap = null;
+let catchPin = null;
+let catchPinCoordinates = null;
+
 // Initialiseer Fase 3 (bij pagina load)
 async function initPhase3() {
     // Haal huidige user op
@@ -499,6 +504,11 @@ async function startSession() {
 function showAddCatchForm() {
     document.getElementById('catchForm').style.display = 'block';
     document.getElementById('successMessage').style.display = 'none';
+
+    // Initialize catch location map
+    setTimeout(() => {
+        initializeCatchMap();
+    }, 100);
 }
 
 // Hide Add Catch Form
@@ -508,64 +518,101 @@ function hideCatchForm() {
     document.getElementById('catchLength').value = '';
     document.getElementById('catchCount').value = '1';
     document.getElementById('catchNotes').value = '';
+
+    // Clean up map
+    if (catchMap) {
+        catchMap.remove();
+        catchMap = null;
+        catchPin = null;
+        catchPinCoordinates = null;
+    }
+}
+
+// Initialize Catch Location Map
+function initializeCatchMap() {
+    const mapContainer = document.getElementById('catchLocationMap');
+    if (!mapContainer) {
+        console.warn('Catch location map container not found');
+        return;
+    }
+
+    // Destroy existing map if any
+    if (catchMap) {
+        catchMap.remove();
+    }
+
+    // Get starting coordinates (session GPS or default)
+    const startLat = activeSession?.latitude || 52.2129;
+    const startLng = activeSession?.longitude || 5.1911;
+
+    // Initialize Leaflet map
+    catchMap = L.map('catchLocationMap', {
+        attributionControl: false,
+        zoomControl: true
+    }).setView([startLat, startLng], 13);
+
+    // Add tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19
+    }).addTo(catchMap);
+
+    // Create draggable marker (pin)
+    catchPin = L.marker([startLat, startLng], {
+        draggable: true,
+        icon: L.icon({
+            iconUrl: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNSIgaGVpZ2h0PSI0MSIgdmlld0JveD0iMCAwIDI1IDQxIj48cGF0aCBkPSJNMTIuNSAwQzUuNTk3IDAgMCA1LjU5NyAwIDEyLjVjMCA0LjczNCAzLjczOCA5LjczIDEyLjUgMjhjOC43NjItMTguMjcgMTIuNS0yMy4yNjYgMTIuNS0yOEM1IDUuNTk3IDE5LjQwMyAwIDEyLjUgMHptMCA2YTYuNSA2LjUgMCAxIDEgMCAxM2MtMy41OTMgMC02LjUtMi45MDctNi41LTYuNXMyLjkwNy02LjUgNi41LTYuNXoiIGZpbGw9IiNGRjQzMTYiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIvPjwvc3ZnPg==',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34]
+        })
+    }).addTo(catchMap);
+
+    // Set initial coordinates
+    catchPinCoordinates = {
+        latitude: startLat,
+        longitude: startLng
+    };
+    updateCatchCoordinatesDisplay();
+
+    // Handle pin drag events
+    catchPin.on('dragend', function() {
+        const latlng = catchPin.getLatLng();
+        catchPinCoordinates = {
+            latitude: latlng.lat,
+            longitude: latlng.lng
+        };
+        updateCatchCoordinatesDisplay();
+
+        // Center map on pin
+        catchMap.panTo(latlng);
+    });
+
+    // Handle map click to move pin
+    catchMap.on('click', function(e) {
+        if (catchPin) {
+            catchPin.setLatLng(e.latlng);
+            catchPinCoordinates = {
+                latitude: e.latlng.lat,
+                longitude: e.latlng.lng
+            };
+            updateCatchCoordinatesDisplay();
+        }
+    });
+
+    // Invalidate map size to ensure proper rendering
+    catchMap.invalidateSize();
+}
+
+// Update coordinate display
+function updateCatchCoordinatesDisplay() {
+    if (catchPinCoordinates) {
+        const lat = catchPinCoordinates.latitude.toFixed(6);
+        const lng = catchPinCoordinates.longitude.toFixed(6);
+        document.getElementById('catchCoordinates').textContent = `Coördinaten: ${lat}, ${lng}`;
+    }
 }
 
 // Save Catch
-// Helper functie: GPS positie ophalenmet fallback naar sessie GPS
-async function getCurrentCatchPosition() {
-    return new Promise((resolve) => {
-        // Toon melding dat GPS wordt opgehaald
-        showStatusMessage('📍 GPS positie wordt opgehaald...', 'loading');
-
-        if (!navigator.geolocation) {
-            console.warn('Geolocation niet beschikbaar, gebruik sessie GPS als fallback');
-            // Fallback: gebruik sessie GPS
-            resolve({
-                latitude: activeSession.latitude || null,
-                longitude: activeSession.longitude || null,
-                is_fallback: true
-            });
-            return;
-        }
-
-        // Probeer huidige positie op te halen met timeout van 10 seconden
-        const timeout = setTimeout(() => {
-            console.warn('GPS timeout na 10 seconden, gebruik sessie GPS als fallback');
-            // Fallback als timeout
-            resolve({
-                latitude: activeSession.latitude || null,
-                longitude: activeSession.longitude || null,
-                is_fallback: true
-            });
-        }, 10000);
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                clearTimeout(timeout);
-                resolve({
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude,
-                    is_fallback: false
-                });
-            },
-            (error) => {
-                clearTimeout(timeout);
-                console.warn('GPS fout:', error.message);
-                // Fallback: gebruik sessie GPS
-                resolve({
-                    latitude: activeSession.latitude || null,
-                    longitude: activeSession.longitude || null,
-                    is_fallback: true
-                });
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0
-            }
-        );
-    });
-}
 
 async function saveCatch() {
     if (!activeSession) {
@@ -580,19 +627,28 @@ async function saveCatch() {
     }
 
     try {
-        // Haal GPS positie op (met fallback naar sessie GPS)
-        const gpsData = await getCurrentCatchPosition();
+        // Haal GPS coördinaten op van de kaart (met fallback naar sessie GPS)
+        let latitude = catchPinCoordinates?.latitude;
+        let longitude = catchPinCoordinates?.longitude;
+        let is_fallback = false;
 
-        if (!gpsData.latitude || !gpsData.longitude) {
-            alert('GPS niet beschikbaar en geen sessie GPS gevonden!');
+        if (!latitude || !longitude) {
+            // Fallback: gebruik sessie GPS
+            latitude = activeSession.latitude;
+            longitude = activeSession.longitude;
+            is_fallback = true;
+        }
+
+        if (!latitude || !longitude) {
+            alert('GPS niet beschikbaar!');
             return;
         }
 
         // Toon feedback over GPS status
-        if (gpsData.is_fallback) {
+        if (is_fallback) {
             console.log('⚠️ GPS fallback gebruikt (sessie GPS)');
         } else {
-            console.log('✅ GPS positie opgehaald');
+            console.log('✅ GPS van kaart gebruikt');
         }
 
         const caught_at = new Date().toISOString();
@@ -607,8 +663,8 @@ async function saveCatch() {
             soort: species,
             lengte: length_cm,
             aantal: count,
-            gps_lat: gpsData.latitude,
-            gps_lng: gpsData.longitude,
+            gps_lat: latitude,
+            gps_lng: longitude,
             notities: notes
         };
 
