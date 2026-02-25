@@ -511,6 +511,62 @@ function hideCatchForm() {
 }
 
 // Save Catch
+// Helper functie: GPS positie ophalenmet fallback naar sessie GPS
+async function getCurrentCatchPosition() {
+    return new Promise((resolve) => {
+        // Toon melding dat GPS wordt opgehaald
+        showStatusMessage('📍 GPS positie wordt opgehaald...', 'loading');
+
+        if (!navigator.geolocation) {
+            console.warn('Geolocation niet beschikbaar, gebruik sessie GPS als fallback');
+            // Fallback: gebruik sessie GPS
+            resolve({
+                latitude: activeSession.latitude || null,
+                longitude: activeSession.longitude || null,
+                is_fallback: true
+            });
+            return;
+        }
+
+        // Probeer huidige positie op te halen met timeout van 10 seconden
+        const timeout = setTimeout(() => {
+            console.warn('GPS timeout na 10 seconden, gebruik sessie GPS als fallback');
+            // Fallback als timeout
+            resolve({
+                latitude: activeSession.latitude || null,
+                longitude: activeSession.longitude || null,
+                is_fallback: true
+            });
+        }, 10000);
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                clearTimeout(timeout);
+                resolve({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    is_fallback: false
+                });
+            },
+            (error) => {
+                clearTimeout(timeout);
+                console.warn('GPS fout:', error.message);
+                // Fallback: gebruik sessie GPS
+                resolve({
+                    latitude: activeSession.latitude || null,
+                    longitude: activeSession.longitude || null,
+                    is_fallback: true
+                });
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
+    });
+}
+
 async function saveCatch() {
     if (!activeSession) {
         alert('Geen actieve sessie!');
@@ -523,34 +579,39 @@ async function saveCatch() {
         return;
     }
 
-    if (!userLocation) {
-        alert('GPS niet beschikbaar!');
-        return;
-    }
-
-    const catchRecord = {
-        session_id: activeSession.id,
-        species: species,
-        length_cm: parseInt(document.getElementById('catchLength').value) || null,
-        count: parseInt(document.getElementById('catchCount').value) || 1,
-        notes: document.getElementById('catchNotes').value || null,
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude,
-        caught_at: new Date().toISOString()
-    };
-
     try {
+        // Haal GPS positie op (met fallback naar sessie GPS)
+        const gpsData = await getCurrentCatchPosition();
+
+        if (!gpsData.latitude || !gpsData.longitude) {
+            alert('GPS niet beschikbaar en geen sessie GPS gevonden!');
+            return;
+        }
+
+        // Toon feedback over GPS status
+        if (gpsData.is_fallback) {
+            console.log('⚠️ GPS fallback gebruikt (sessie GPS)');
+        } else {
+            console.log('✅ GPS positie opgehaald');
+        }
+
+        const caught_at = new Date().toISOString();
+        const length_cm = parseInt(document.getElementById('catchLength').value) || null;
+        const count = parseInt(document.getElementById('catchCount').value) || 1;
+        const notes = document.getElementById('catchNotes').value || null;
+
         const catchInsertData = {
-            field_session_id: catchRecord.session_id,
+            field_session_id: activeSession.id,
             user_id: userId,
-            vangst_tijd: catchRecord.caught_at,
-            soort: catchRecord.species,
-            lengte: catchRecord.length_cm,
-            aantal: catchRecord.count,
-            gps_lat: catchRecord.latitude,
-            gps_lng: catchRecord.longitude,
-            notities: catchRecord.notes
+            vangst_tijd: caught_at,
+            soort: species,
+            lengte: length_cm,
+            aantal: count,
+            gps_lat: gpsData.latitude,
+            gps_lng: gpsData.longitude,
+            notities: notes
         };
+
         console.log('Attempting to insert field_catches with:', JSON.stringify(catchInsertData));
 
         const { error } = await supabaseClient
@@ -562,7 +623,7 @@ async function saveCatch() {
             throw error;
         }
 
-        showSuccessMessage(`Vangst opgeslagen: ${species}${catchRecord.length_cm ? ' (' + catchRecord.length_cm + 'cm)' : ''}`);
+        showSuccessMessage(`Vangst opgeslagen: ${species}${length_cm ? ' (' + length_cm + 'cm)' : ''}`);
         hideCatchForm();
     } catch (error) {
         console.error('Error saving catch:', error);
@@ -646,6 +707,23 @@ function showSuccessMessage(message) {
     setTimeout(() => {
         msgEl.style.display = 'none';
     }, 3000);
+}
+
+function showStatusMessage(message, type = 'info') {
+    const msgEl = document.getElementById('successMessage');
+    msgEl.textContent = message;
+    msgEl.style.display = 'block';
+
+    // Bepaal CSS klasse op basis van type
+    msgEl.style.backgroundColor = type === 'loading' ? '#2196F3' : '#4CAF50';
+
+    // Voor loading: niet automatisch verbergen
+    // Voor andere types: na 3 seconden verbergen
+    if (type !== 'loading') {
+        setTimeout(() => {
+            msgEl.style.display = 'none';
+        }, 3000);
+    }
 }
 
 // Setup drag handle voor slide-up panel (mouse + touch)
