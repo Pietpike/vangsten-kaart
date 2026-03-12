@@ -6,7 +6,7 @@ const SUPABASE_URL = 'https://hezjtqaowjpyvkadeisp.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhlemp0cWFvd2pweXZrYWRlaXNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM0MTQ3NTMsImV4cCI6MjA2ODk5MDc1M30.hq0IwhnnrJIXfTMGNE6PJkB0qhx2t7h3h0UOpZGi7wo';
 
 const supabaseClient = window.supabase.createClient(
-    SUPABASE_URL, 
+    SUPABASE_URL,
     SUPABASE_KEY,
     {
         auth: {
@@ -15,6 +15,121 @@ const supabaseClient = window.supabase.createClient(
         }
     }
 );
+
+// ====================================
+// HELPER: NEDERLANDSE LOKALE DATUM/TIJD
+// ====================================
+
+/**
+ * Returnt huidige datum/tijd in Nederlandse lokale tijdzone
+ * Formaat: YYYY-MM-DD HH:mm:ss (ISO achtig formaat maar in lokale tijd)
+ */
+function getLocalDateTime() {
+    // toLocaleString('sv') geeft YYYY-MM-DD HH:mm:ss in lokale tijd
+    return new Date().toLocaleString('sv');
+}
+
+/**
+ * Returnt datum in Nederlands formaat: YYYY-MM-DD
+ */
+function getLocalDate() {
+    return new Date().toLocaleString('sv').split(' ')[0];
+}
+
+/**
+ * Converteert datetime-local input (YYYY-MM-DDTHH:mm) naar Nederlands lokale formaat
+ */
+function convertDatetimeLocalToLocal(datetimeLocalString) {
+    if (!datetimeLocalString) return null;
+    const date = new Date(datetimeLocalString);
+    return date.toLocaleString('sv');
+}
+
+// ====================================
+// LOCATIE TRACKING (MIJN LOCATIE)
+// ====================================
+
+let locatieMarker = null;
+let locatieCircle = null;
+let locatieWatcher = null;
+let locatieActief = false;
+
+/**
+ * Toggle mijn locatie tracking aan/uit
+ */
+function toggleLocatie() {
+    if (locatieActief) {
+        // Zet locatie tracking uit
+        if (locatieWatcher) navigator.geolocation.clearWatch(locatieWatcher);
+        if (locatieMarker) locatieMarker.remove();
+        if (locatieCircle) locatieCircle.remove();
+        locatieMarker = null;
+        locatieCircle = null;
+        locatieWatcher = null;
+        locatieActief = false;
+        document.getElementById('locatieBtn').style.background = 'white';
+        document.getElementById('locatieBtn').style.borderColor = '#ccc';
+        console.log('✓ Locatie tracking uitgeschakeld');
+    } else {
+        // Zet locatie tracking aan
+        if (!navigator.geolocation) {
+            alert('GPS niet beschikbaar op dit apparaat');
+            return;
+        }
+        locatieActief = true;
+        document.getElementById('locatieBtn').style.background = '#e3f2fd';
+        document.getElementById('locatieBtn').style.borderColor = '#1976D2';
+        console.log('▶️ Locatie tracking ingeschakeld');
+
+        locatieWatcher = navigator.geolocation.watchPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                const accuracy = position.coords.accuracy;
+
+                console.log(`📍 GPS update: ${lat.toFixed(6)}, ${lng.toFixed(6)} (nauwkeurigheid: ${accuracy.toFixed(0)}m)`);
+
+                if (locatieMarker) {
+                    // Update bestaande marker en cirkel
+                    locatieMarker.setLatLng([lat, lng]);
+                    locatieCircle.setLatLng([lat, lng]);
+                    locatieCircle.setRadius(accuracy);
+                } else {
+                    // Eerste fix: maak marker en nauwkeurigheidscirkel
+                    locatieCircle = L.circle([lat, lng], {
+                        radius: accuracy,
+                        color: '#1976D2',
+                        fillColor: '#1976D2',
+                        fillOpacity: 0.1,
+                        weight: 1
+                    }).addTo(map);
+
+                    locatieMarker = L.circleMarker([lat, lng], {
+                        radius: 8,
+                        color: 'white',
+                        fillColor: '#1976D2',
+                        fillOpacity: 1,
+                        weight: 2
+                    }).bindPopup('📍 Jouw huigte locatie').addTo(map);
+
+                    // Centreer kaart op eerste fix
+                    map.setView([lat, lng], 15);
+                    console.log('✓ Eerste GPS fix ontvangen, kaart gecentreerd');
+                }
+            },
+            (error) => {
+                console.error('❌ GPS fout:', error.message);
+                alert('GPS fout: ' + error.message);
+                if (locatieWatcher) navigator.geolocation.clearWatch(locatieWatcher);
+                locatieWatcher = null;
+                locatieActief = false;
+                document.getElementById('locatieBtn').style.background = 'white';
+                document.getElementById('locatieBtn').style.borderColor = '#ccc';
+            },
+            { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
+        );
+    }
+}
 
 // ====================================
 // AUTHENTICATION CHECK
@@ -169,21 +284,47 @@ async function loadAllData() {
                 console.warn('Vangst zonder GPS coordinaten:', vangst);
                 return;
             }
-            
+
             const vissoort = vangst.soort ? vangst.soort.toLowerCase() : 'overig';
-            const icon = fishIcons[vissoort] || fishIcons.overig;
-            
+            const baseIcon = fishIcons[vissoort] || fishIcons.overig;
+
+            // ⭐ STAP 1 + 2: Detectie gekoppelde vangsten en custom icon met badge
+            let icon;
+            const isLinked = vangst.linked_catch_id || vangst.linked_sighting_id;
+
+            if (isLinked) {
+                // Gekoppelde vangst: divIcon met 🔗 badge
+                const baseUrl = baseIcon.options.iconUrl;
+                const iconSize = baseIcon.options.iconSize;
+                const width = iconSize[0] || 25;
+                const height = iconSize[1] || 41;
+
+                icon = L.divIcon({
+                    className: '',
+                    html: `<div style="position:relative;">
+                        <img src="${baseUrl}" style="width:${width}px;height:${height}px;">
+                        <span style="position:absolute;top:-4px;right:-8px;background:white;border-radius:50%;font-size:12px;line-height:16px;width:16px;height:16px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.4);">🔗</span>
+                    </div>`,
+                    iconSize: iconSize,
+                    iconAnchor: baseIcon.options.iconAnchor,
+                    popupAnchor: baseIcon.options.popupAnchor
+                });
+            } else {
+                // Normale vangst: standaard icon
+                icon = baseIcon;
+            }
+
             const marker = L.marker([vangst.gps_lat, vangst.gps_long], { icon: icon });
-            
+
             const aasNaam = vangst.aastabel?.naam || 'Onbekend';
-            
+
             let datumTekst = 'Onbekend';
             if (vangst.catch_datetime) {
                 try {
                     const datum = new Date(vangst.catch_datetime);
-                    datumTekst = datum.toLocaleDateString('nl-NL', { 
-                        year: 'numeric', 
-                        month: 'long', 
+                    datumTekst = datum.toLocaleDateString('nl-NL', {
+                        year: 'numeric',
+                        month: 'long',
                         day: 'numeric',
                         hour: '2-digit',
                         minute: '2-digit'
@@ -192,22 +333,30 @@ async function loadAllData() {
                     datumTekst = vangst.catch_datetime;
                 }
             }
-            
-            const popupContent = `
+
+            // ⭐ STAP 3: Popup met koppelingsinfo
+            let popupContent = `
                 <div style="min-width: 200px;">
                     <h3 style="margin: 0 0 10px 0; color: #2c3e50;">🎣 ${vangst.soort || 'Onbekend'}</h3>
                     <p style="margin: 5px 0;"><strong>📅 Datum:</strong> ${datumTekst}</p>
                     <p style="margin: 5px 0;"><strong>🎣 Aas:</strong> ${aasNaam}</p>
                     <p style="margin: 5px 0;"><strong>📏 Lengte:</strong> ${vangst.lengte ? vangst.lengte + ' cm' : 'Onbekend'}</p>
                     <p style="margin: 5px 0;"><strong>🔢 Aantal:</strong> ${vangst.aantal || '1'}</p>
-                    ${vangst.techniek ? '<p style="margin: 5px 0;"><strong>⚙️ Techniek:</strong> ' + vangst.techniek + '</p>' : ''}
-                </div>
-            `;
-            
+                    ${vangst.techniek ? '<p style="margin: 5px 0;"><strong>⚙️ Techniek:</strong> ' + vangst.techniek + '</p>' : ''}`;
+
+            // Voeg koppelingsinfo toe
+            if (vangst.linked_catch_id) {
+                popupContent += `<p style="margin: 10px 0 0 0; padding-top: 10px; border-top: 1px solid #ddd;"><span style="color:#1976D2;font-weight:600;">🔗 Eerder gevangen op ${vangst.catch_datetime?.substring(0, 10) || '?'}</span></p>`;
+            } else if (vangst.linked_sighting_id) {
+                popupContent += `<p style="margin: 10px 0 0 0; padding-top: 10px; border-top: 1px solid #ddd;"><span style="color:#FF9800;font-weight:600;">🔍 Eerder waargenomen</span></p>`;
+            }
+
+            popupContent += `</div>`;
+
             marker.bindPopup(popupContent);
             marker.fishType     = vissoort;
             marker.activityType = 'catch';
-            
+
             allMarkers.push(marker);
         });
         
@@ -455,18 +604,18 @@ async function startSession() {
         latitude: userLocation.latitude,
         longitude: userLocation.longitude,
         user_id: userId,
-        started_at: new Date().toISOString()
+        started_at: getLocalDateTime()  // ← Nederlandse lokale tijd
     };
 
     // Schrijf naar Supabase
     try {
-        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        const today = getLocalDate();  // ← Nederlandse lokale datum YYYY-MM-DD
         const insertData = {
             user_id: activeSession.user_id,
             start_tijd: activeSession.started_at,
             datum: today,
             gps_lat: activeSession.latitude,
-            gps_lng: activeSession.longitude
+            gps_long: activeSession.longitude
         };
         console.log('Attempting to insert field_sessions with:', JSON.stringify(insertData, null, 2));
 
@@ -651,7 +800,7 @@ async function saveCatch() {
             console.log('✅ GPS van kaart gebruikt');
         }
 
-        const caught_at = new Date().toISOString();
+        const caught_at = getLocalDateTime();  // ← Nederlandse lokale tijd
         const length_cm = parseInt(document.getElementById('catchLength').value) || null;
         const count = parseInt(document.getElementById('catchCount').value) || 1;
         const notes = document.getElementById('catchNotes').value || null;
@@ -664,7 +813,7 @@ async function saveCatch() {
             lengte: length_cm,
             aantal: count,
             gps_lat: latitude,
-            gps_lng: longitude,
+            gps_long: longitude,
             notities: notes
         };
 
@@ -711,13 +860,13 @@ async function stopSession() {
     if (!activeSession) return;
 
     const sessionUpdate = {
-        eind_tijd: new Date().toISOString(),
+        eind_tijd: getLocalDateTime(),  // ← Nederlandse lokale tijd
         locatie: document.getElementById('stopLocation').value || null,
         watertemperatuur: parseFloat(document.getElementById('waterTemp').value) || null,
         helderheid: document.getElementById('clarity').value || null,
         stroomsnelheid: document.getElementById('flowRate').value || null,
         diepte: parseFloat(document.getElementById('depth').value) || null,
-        bodem_hardheid: document.getElementById('bottomType').value || null,
+        bodemhardheid: document.getElementById('bottomType').value || null,
         watersoort: document.getElementById('waterType').value || null,
         notities: document.getElementById('stopNotes').value || null
     };

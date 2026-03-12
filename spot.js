@@ -4,6 +4,28 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// ====================================
+// HELPER: NEDERLANDSE LOKALE DATUM/TIJD
+// ====================================
+
+/**
+ * Returnt huidige datum/tijd in Nederlandse lokale tijdzone
+ * Formaat: YYYY-MM-DD HH:mm:ss (ISO achtig formaat maar in lokale tijd)
+ */
+function getLocalDateTime() {
+    // toLocaleString('sv') geeft YYYY-MM-DD HH:mm:ss in lokale tijd
+    return new Date().toLocaleString('sv');
+}
+
+/**
+ * Converteert datetime-local input (YYYY-MM-DDTHH:mm) naar Nederlands lokale formaat
+ */
+function convertDatetimeLocalToLocal(datetimeLocalString) {
+    if (!datetimeLocalString) return null;
+    const date = new Date(datetimeLocalString);
+    return date.toLocaleString('sv');
+}
+
 // GPS variabelen
 let currentLat = null;
 let currentLong = null;
@@ -208,7 +230,7 @@ document.getElementById('spotForm').addEventListener('submit', async (e) => {
         let sightingDatetime;
 
         if (tijdType === 'nu') {
-            sightingDatetime = new Date().toISOString();
+            sightingDatetime = getLocalDateTime();  // ← Nederlandse lokale tijd
         } else {
             const customDatetime = document.getElementById('custom_datetime').value;
             if (!customDatetime) {
@@ -217,7 +239,7 @@ document.getElementById('spotForm').addEventListener('submit', async (e) => {
                 submitBtn.textContent = 'Opslaan & Klaar';
                 return;
             }
-            sightingDatetime = new Date(customDatetime).toISOString();
+            sightingDatetime = convertDatetimeLocalToLocal(customDatetime);  // ← Conversie naar Nederlandse lokale tijd
         }
 
         // GPS bepalen
